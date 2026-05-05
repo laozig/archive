@@ -1,0 +1,52 @@
+{
+  "about": "一个热爱逆向工程与安全研究的开发者。专注于 Web 安全、移动安全、恶意代码分析。",
+  "subtitle": "Security Researcher · Reverse Engineer · CTF Player",
+  "tags": [
+    "#逆向工程",
+    "#Web 安全",
+    "#CTF",
+    "#AI"
+  ],
+  "blogs": [],
+  "drafts": [],
+  "projects": [],
+  "tools": [],
+  "books": [],
+  "movies": [],
+  "moods": [],
+  "skills": [
+    {
+      "name": "Python",
+      "level": 90,
+      "color": "cyan"
+    },
+    {
+      "name": "JavaScript",
+      "level": 85,
+      "color": "cyan"
+    },
+    {
+      "name": "逆向工程",
+      "level": 88,
+      "color": "pink"
+    },
+    {
+      "name": "Web 安全",
+      "level": 82,
+      "color": "purple"
+    },
+    {
+      "name": "Frida",
+      "level": 80,
+      "color": "green"
+    },
+    {
+      "name": "C/C++",
+      "level": 70,
+      "color": "orange"
+    }
+  ],
+  "theme": "default",
+  "ghUsername": "",
+  "lang": "zh"
+}

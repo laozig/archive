@@ -1,0 +1,697 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAOZIG | 个人综合站</title>
+    <meta name="description" content="LAOZIG 的个人综合站 - Security Researcher · Reverse Engineer · CTF Player">
+    <meta name="author" content="LAOZIG">
+    <meta property="og:title" content="LAOZIG | 个人综合站">
+    <meta property="og:description" content="Security Researcher · Reverse Engineer · CTF Player | 逆向工程 · Web 安全 · CTF">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://laozig.com">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="LAOZIG | 个人综合站">
+    <meta name="twitter:description" content="Security Researcher · Reverse Engineer · CTF Player">
+    <link rel="icon" href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'&gt;&lt;text y='.9em' font-size='90'&gt;⚡&lt;/text&gt;&lt;/svg&gt;">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="alternate" type="application/rss+xml" title="LAOZIG RSS" href="rss.xml">
+    <meta name="theme-color" content="#00f0ff">
+    <!-- DOMPurify 防 XSS -->
+    <script src="vendor/purify.min.js"></script>
+</head>
+<body>
+
+<!-- ====== 启动序列 ====== -->
+<div class="boot-screen" id="bootScreen">
+    <div class="boot-content">
+        <pre class="boot-ascii" id="bootAscii">
+ ██╗      █████╗  █████╗ ███████╗██╗ █████╗ 
+ ██║     ██╔═══██╗██╔═══██╗╚══███╔╝██║██╔════╝ 
+ ██║     ██║   ██║██║   ██║  ███╔╝ ██║██║  ███╗
+ ██║     ██║   ██║██║   ██║ ███╔╝  ██║██║   ██║
+ ███████╗╚██████╔╝╚██████╔╝███████╗██║╚██████╔╝
+ ╚══════╝ ╚═══╝  ╚═══╝ ╚══════╝╚═╝ ╚════╝</pre>
+        <div class="boot-log" id="bootLog"></div>
+        <div class="boot-bar">
+            <div class="boot-bar-fill" id="bootBarFill"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 背景网格动画 -->
+<div class="grid-bg" id="gridBg"></div>
+
+<!-- 粒子线 -->
+<canvas id="particleCanvas" width="750" height="485"></canvas>
+
+<!-- 扫描线效果 -->
+<div class="scanline"></div>
+
+<!-- 导航 -->
+<nav class="navbar" id="navbar">
+    <div class="nav-inner">
+        <a class="nav-logo" href="#" data-page="home">
+            <span class="logo-bracket">[</span>LAOZIG<span class="logo-bracket">]</span>
+        </a>
+        <div class="nav-links" id="navLinks">
+            <a href="#" data-page="home" class="">主页</a>
+            <a href="#" data-page="blog">博客</a>
+            <a href="#" data-page="projects">项目</a>
+            <a href="#" data-page="tools">工具箱</a>
+            <a href="#" data-page="github">GitHub</a>
+            <a href="#" data-page="bookshelf">书架</a>
+            <a href="#" data-page="cinema">影视</a>
+            <a href="#" data-page="mood">碎碎念</a>
+            </div>
+        <div class="nav-right">
+            <span class="nav-clock" id="navClock">19:30:26</span>
+            <button class="nav-search-btn" id="navSearchBtn" title="搜索 (Ctrl+K)">⌕</button>
+            <button class="nav-lang-btn" id="navLangBtn" title="EN/CN">EN</button>
+            <button class="nav-toggle" id="navToggle">☰</button>
+        </div>
+    </div>
+</nav>
+
+<!-- 搜索弹窗 -->
+<div class="search-modal" id="searchModal">
+    <div class="search-box">
+        <div class="search-input-wrap">
+            <span class="search-icon">⌕</span>
+            <input type="text" id="searchInput" placeholder="搜索博客、项目、工具..." autocomplete="off">
+            <kbd>ESC</kbd>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+    </div>
+</div>
+
+<!-- 页面容器 -->
+<main class="container" id="app">
+
+    <!-- ====== 主页 ====== -->
+    <section class="page active" id="page-home" role="main" aria-label="主页">
+        <div class="hero">
+            <div class="glitch-wrapper">
+                <h1 class="glitch" data-text="LAOZIG">LAOZIG</h1>
+            </div>
+            <p class="subtitle" id="heroSubtitle" data-typed="1" style="border-right-width: medium; border-right-style: none; border-right-color: currentcolor;">Security Researcher · Reverse Engineer · CTF Player</p>
+            <div class="status-line">
+                <span class="status-dot online"></span>
+                <span id="statusText">系统在线</span>
+                <span class="status-sep">|</span>
+                <span id="uptimeCounter">运行 8s</span>
+            </div>
+            <div class="hero-tags" id="heroTags"></div>
+            <div class="hero-stats" id="heroStats">
+                <div class="stat-item">
+                    <span class="stat-num" id="statBlogs">0</span>
+                    <span class="stat-label">博客</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num" id="statProjects">0</span>
+                    <span class="stat-label">项目</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num" id="statTools">0</span>
+                    <span class="stat-label">工具</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num" id="statMoods">0</span>
+                    <span class="stat-label">动态</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num" id="statBooks">0</span>
+                    <span class="stat-label">书籍</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 交互式终端 -->
+        <div class="section">
+            <h2 class="section-title">▸ 终端</h2>
+            <div class="terminal" id="terminal">
+                <div class="terminal-header">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span class="terminal-title">laozig@cyber:~</span>
+                </div>
+                <div class="terminal-body" id="terminalBody"><div class="t-line success">Welcome to LAOZIG Terminal v3.0</div><div class="t-line output">Type "help" for available commands.</div><div class="t-line output">&nbsp;</div></div>
+                <div class="terminal-input-line">
+                    <span class="terminal-prompt">guest@laozig:~$</span>
+                    <input type="text" class="terminal-input" id="terminalInput" autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+        </div>
+
+        <!-- 技能栈 -->
+        <div class="section">
+            <h2 class="section-title">▸ 技能栈</h2>
+            <div class="skills-grid" id="skillsGrid"></div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">▸ 关于我</h2>
+            <div class="card">
+                <p id="aboutText"></p>
+            </div>
+        </div>
+
+        <!-- 弹幕墙 -->
+        <div class="section">
+            <h2 class="section-title">▸ 弹幕墙</h2>
+            <div class="danmaku-wrap">
+                <div class="danmaku-stage" id="danmakuStage"><div class="danmaku-bullet" style="top: 10.1138px; animation-duration: 6.97401s; color: var(--pink);">赛博朋克风太酷了</div><div class="danmaku-bullet" style="top: -7.47268px; animation-duration: 7.23783s; color: var(--orange);">BugFree!</div><div class="danmaku-bullet" style="top: -3.38471px; animation-duration: 7.37605s; color: var(--cyan);">BugFree!</div><div class="danmaku-bullet" style="top: -24.4269px; animation-duration: 9.53338s; color: var(--orange);">逆向工程爱好者路过</div><div class="danmaku-bullet" style="top: -2.40728px; animation-duration: 7.85429s; color: var(--text-primary);">逆向工程爱好者路过</div></div>
+                <div class="danmaku-input-row">
+                    <input type="text" id="danmakuInput" placeholder="发一条弹幕..." maxlength="50">
+                    <button class="btn btn-primary" id="danmakuSend">发射</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">▸ 最新动态</h2>
+            <div class="mood-list" id="homeMoodList"></div>
+        </div>
+
+        <!-- GitHub 贡献图风格活动热力图 -->
+        <div class="section">
+            <h2 class="section-title">▸ 活动记录</h2>
+            <div class="activity-map" id="activityMap"></div>
+            <div class="activity-legend">
+                <span>少</span>
+                <span class="act-block l0"></span>
+                <span class="act-block l1"></span>
+                <span class="act-block l2"></span>
+                <span class="act-block l3"></span>
+                <span class="act-block l4"></span>
+                <span>多</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ====== 博客 ====== -->
+    <section class="page" id="page-blog" role="main" aria-label="博客列表">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">▸ 博客</h2>
+                <span class="section-sub" id="blogCount">共 0 篇</span>
+            </div>
+            <div class="blog-filter" id="blogFilter">
+                <button class="filter-btn active" data-filter="all">全部</button>
+            </div>
+            <div class="tag-cloud" id="tagCloud"></div>
+            <div class="storage-warning" id="storageWarning"></div>
+            <div class="blog-list" id="blogList"></div>
+            <div class="pagination" id="blogPagination"></div>
+        </div>
+    </section>
+
+    <!-- 博客详情 -->
+    <section class="page" id="page-blog-detail" role="main" aria-label="博客详情">
+        <div class="section">
+            <button class="btn-back" id="blogBack">← 返回列表</button>
+            <article class="blog-detail" id="blogDetail"></article>
+            <div class="blog-stats" id="blogStats"></div>
+            <div class="share-bar" id="shareBar"></div>
+            <!-- 相关文章 -->
+            <div class="related-posts" id="relatedPosts">
+                <h4>▸ 相关文章</h4>
+                <div class="related-posts-grid" id="relatedPostsGrid"></div>
+            </div>
+            <!-- 博客目录 -->
+            <aside class="blog-toc" id="blogToc">
+                <h4>目录</h4>
+                <div class="toc-list" id="tocList"></div>
+            </aside>
+        </div>
+    </section>
+
+    <!-- ====== GitHub ====== -->
+    <section class="page" id="page-github" role="main" aria-label="GitHub">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">▸ GitHub</h2>
+                <span class="section-sub" id="ghStatus"></span>
+            </div>
+            <div class="gh-profile" id="ghProfile"></div>
+            <h3 style="color:var(--cyan);margin:1.5rem 0 1rem;font-size:0.95rem;">Repositories</h3>
+            <div class="gh-repos" id="ghRepos"></div>
+        </div>
+    </section>
+
+    <!-- ====== 项目 ====== -->
+    <section class="page" id="page-projects" role="main" aria-label="项目列表">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">▸ 项目</h2>
+                <span class="section-sub" id="projectCount">共 0 个</span>
+            </div>
+            <div class="project-grid" id="projectGrid"></div>
+        </div>
+    </section>
+
+    <!-- ====== 工具箱 ====== -->
+    <section class="page" id="page-tools" role="main" aria-label="工具箱">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">▸ 工具箱</h2>
+                <span class="section-sub" id="toolsCount">共 0 个</span>
+            </div>
+            <div class="tools-grid" id="toolsGrid"></div>
+        </div>
+    </section>
+
+    <!-- ====== 影视柜 ====== -->
+    <section class="page" id="page-cinema" role="main" aria-label="影视柜">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">▸ 影视柜</h2>
+                <span class="section-sub" id="movieCount">共 0 部</span>
+            </div>
+            <div class="movie-tabs">
+                <button class="filter-btn active" data-movie-filter="all">全部</button>
+                <button class="filter-btn" data-movie-filter="movie">电影</button>
+                <button class="filter-btn" data-movie-filter="tv">剧集</button>
+                <button class="filter-btn" data-movie-filter="anime">动画</button>
+                <button class="filter-btn" data-movie-filter="docu">纪录片</button>
+            </div>
+            <div class="movie-view-switch" id="movieViewSwitch">
+                <button class="filter-btn active" data-movie-view="card">卡片</button>
+                <button class="filter-btn" data-movie-view="list">列表</button>
+            </div>
+            <div class="movie-grid" id="movieGrid"></div>
+        </div>
+    </section>
+
+    <!-- ====== 书架 ====== -->
+    <section class="page" id="page-bookshelf" role="main" aria-label="书架">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">▸ 书架</h2>
+                <span class="section-sub" id="bookCount">共 0 本</span>
+            </div>
+            <div class="book-tabs">
+                <button class="filter-btn active" data-book-filter="all">全部</button>
+                <button class="filter-btn" data-book-filter="reading">在读</button>
+                <button class="filter-btn" data-book-filter="finished">已读</button>
+                <button class="filter-btn" data-book-filter="wishlist">想读</button>
+            </div>
+            <div class="book-grid" id="bookGrid"></div>
+        </div>
+    </section>
+
+    <!-- ====== 碎碎念 ====== -->
+    <section class="page" id="page-mood" role="main" aria-label="碎碎念">
+        <div class="section">
+            <div class="section-header">
+                <h2 class="section-title">▸ 碎碎念</h2>
+                <span class="section-sub" id="moodCount">共 0 条</span>
+            </div>
+            <div class="mood-list" id="moodList"></div>
+        </div>
+    </section>
+
+    <!-- ====== 管理后台 ====== -->
+    <section class="page" id="page-admin" role="main" aria-label="????">
+        <div class="section">
+            <h2 class="section-title">⚙ 管理后台</h2>
+            <div class="card" style="margin-bottom:1rem;">
+                <h3>🔐 管理认证</h3>
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin:0.6rem 0 0.8rem;">输入服务端管理密钥后，才可读取草稿并修改共享数据。</p>
+                <form id="adminAuthForm">
+                    <input id="adminKeyInput" type="password" placeholder="输入管理密钥" autocomplete="current-password">
+                    <div class="admin-actions">
+                        <button class="btn btn-primary" id="adminAuthBtn" type="submit">连接</button>
+                        <button class="btn" id="adminLogoutBtn" type="button">断开</button>
+                    </div>
+                </form>
+                <div id="adminAuthStatus" style="font-size:0.82rem;color:var(--text-secondary);">当前未认证</div>
+            </div>
+            <div id="adminProtected" style="display:none;">
+            <div class="admin-tabs">
+                <button class="admin-tab active" data-tab="adminDashboard">统计</button>
+                <button class="admin-tab" data-tab="adminAbout">关于我</button>
+                <button class="admin-tab" data-tab="adminBlog">博客</button>
+                <button class="admin-tab" data-tab="adminProject">项目</button>
+                <button class="admin-tab" data-tab="adminTool">工具</button>
+                <button class="admin-tab" data-tab="adminBook">书架</button>
+                <button class="admin-tab" data-tab="adminMovie">影视</button>
+                <button class="admin-tab" data-tab="adminMood">碎碎念</button>
+                <button class="admin-tab" data-tab="adminSkills">技能栈</button>
+                <button class="admin-tab" data-tab="adminTheme">主题</button>
+                <button class="admin-tab" data-tab="adminCSS">自定义CSS</button>
+            </div>
+
+            <!-- 数据统计面板 -->
+            <div class="admin-panel active" id="adminDashboard">
+                <h3>📊 数据统计</h3>
+                <div class="dashboard-grid" id="dashboardGrid">
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashBlogs">0</div>
+                        <div class="dash-label">博客</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashProjects">0</div>
+                        <div class="dash-label">项目</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashTools">0</div>
+                        <div class="dash-label">工具</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashMovies">0</div>
+                        <div class="dash-label">影视</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashBooks">0</div>
+                        <div class="dash-label">书籍</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashMoods">0</div>
+                        <div class="dash-label">动态</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashDrafts">0</div>
+                        <div class="dash-label">草稿</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashSkills">0</div>
+                        <div class="dash-label">技能</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashVisitors">0</div>
+                        <div class="dash-label">访问次数</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashFirstVisit">-</div>
+                        <div class="dash-label">首次访问</div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-num" id="dashStorage">0%</div>
+                        <div class="dash-label">存储占用</div>
+                    </div>
+                </div>
+                <h3 style="margin-top:2rem;">内容增长趋势</h3>
+                <canvas id="trendChart" height="200" style="width:100%;margin-top:0.5rem;"></canvas>
+                <h3 style="margin-top:2rem;">分类分布</h3>
+                <div id="categoryStats" style="margin-top:0.5rem;"></div>
+            </div>
+
+            <!-- 关于我 -->
+            <div class="admin-panel" id="adminAbout">
+                <h3>编辑自我介绍</h3>
+                <textarea id="editAbout" rows="4"></textarea>
+                <h3>副标题</h3>
+                <input id="editSubtitle" placeholder="副标题文字">
+                <h3>标签（逗号分隔）</h3>
+                <input id="editTags" placeholder="#标签1, #标签2">
+                <h3>GitHub 用户名</h3>
+                <input id="editGH" placeholder="GitHub Username（用于自动拉取仓库）">
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="saveAbout">保存</button>
+                </div>
+            </div>
+
+            <!-- 博客管理 -->
+            <div class="admin-panel" id="adminBlog">
+                <h3 id="blogEditTitle">添加博客</h3>
+                <input type="hidden" id="blogEditId">
+                <input id="blogTitle" placeholder="标题">
+                <input id="blogTags" placeholder="标签（逗号分隔）">
+                <input id="blogCategory" placeholder="分类（如：逆向、Web、CTF）">
+                <button class="btn btn-small" id="toggleMdEditor" style="margin-bottom:0.5rem;">切换编辑器模式</button>
+                <textarea id="blogContent" rows="10" placeholder="内容（支持 Markdown）"></textarea>
+                <div class="md-editor" id="mdEditor">
+                    <div class="md-editor-pane">
+                        <textarea id="mdSource" placeholder="在此输入 Markdown..."></textarea>
+                    </div>
+                    <div class="md-editor-preview" id="mdPreview"></div>
+                </div>
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addBlog">发布</button>
+                    <button class="btn" id="saveDraft">存为草稿</button>
+                    <button class="btn btn-warning" id="cancelEdit" style="display:none;">取消编辑</button>
+                </div>
+                <h3 style="margin-top:2rem;">草稿箱</h3>
+                <ul class="admin-list" id="blogDraftList"></ul>
+                <h3 style="margin-top:1.5rem;">已发布</h3>
+                <ul class="admin-list" id="blogAdminList"></ul>
+            </div>
+
+            <!-- 项目管理 -->
+            <div class="admin-panel" id="adminProject">
+                <h3 id="projEditTitle">添加项目</h3>
+                <input type="hidden" id="projEditId">
+                <input id="projName" placeholder="项目名称">
+                <input id="projDesc" placeholder="简短描述">
+                <input id="projUrl" placeholder="项目链接">
+                <input id="projTags" placeholder="标签（逗号分隔）">
+                <input id="projStars" placeholder="GitHub Stars（数字）" type="number">
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addProject">添加</button>
+                    <button class="btn btn-warning" id="cancelProjEdit" style="display:none;">取消编辑</button>
+                </div>
+                <h3 style="margin-top:2rem;">已添加</h3>
+                <ul class="admin-list" id="projectAdminList"></ul>
+            </div>
+
+            <!-- 工具管理 -->
+            <div class="admin-panel" id="adminTool">
+                <h3 id="toolEditTitle">添加工具</h3>
+                <input type="hidden" id="toolEditId">
+                <input id="toolName" placeholder="工具名称">
+                <input id="toolDesc" placeholder="工具描述">
+                <input id="toolUrl" placeholder="工具链接">
+                <input id="toolCategory" placeholder="分类（如：加密、逆向、网络）">
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addTool">添加</button>
+                    <button class="btn btn-warning" id="cancelToolEdit" style="display:none;">取消编辑</button>
+                </div>
+                <h3 style="margin-top:2rem;">已添加</h3>
+                <ul class="admin-list" id="toolAdminList"></ul>
+            </div>
+
+            <!-- 影视管理 -->
+            <div class="admin-panel" id="adminMovie">
+                <h3 id="movieEditTitle">添加影视</h3>
+                <input type="hidden" id="movieEditId">
+                <input id="movieTitle" placeholder="影片名称">
+                <input id="movieDirector" placeholder="导演">
+                <input id="movieCast" placeholder="主演（如：张三 / 李四）">
+                <input id="movieUrl" placeholder="影片链接（可选）" />
+                <select id="movieType">
+                    <option value="movie">电影</option>
+                    <option value="tv">剧集</option>
+                    <option value="anime">动画</option>
+                    <option value="docu">纪录片</option>
+                </select>
+                <select id="movieStatus">
+                    <option value="watched">已看</option>
+                    <option value="watching">在看</option>
+                    <option value="wishlist">想看</option>
+                </select>
+                <input id="movieRating" placeholder="评分 1-10（可选）" type="number" min="1" max="10">
+                <textarea id="movieNote" rows="3" placeholder="短评（可选）"></textarea>
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addMovie">添加</button>
+                    <button class="btn btn-warning" id="cancelMovieEdit" style="display:none;">取消编辑</button>
+                </div>
+                <h3 style="margin-top:2rem;">已添加</h3>
+                <ul class="admin-list" id="movieAdminList"></ul>
+            </div>
+
+            <!-- 书架管理 -->
+            <div class="admin-panel" id="adminBook">
+                <h3 id="bookEditTitle">添加书籍</h3>
+                <input type="hidden" id="bookEditId">
+                <input id="bookTitle" placeholder="书名">
+                <input id="bookAuthor" placeholder="作者">
+                <select id="bookStatus">
+                    <option value="reading">在读</option>
+                    <option value="finished">已读</option>
+                    <option value="wishlist">想读</option>
+                </select>
+                <input id="bookRating" placeholder="评分 1-5（可选）" type="number" min="1" max="5">
+                <textarea id="bookNote" rows="3" placeholder="读书笔记（可选）"></textarea>
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addBook">添加</button>
+                    <button class="btn btn-warning" id="cancelBookEdit" style="display:none;">取消编辑</button>
+                </div>
+                <h3 style="margin-top:2rem;">已添加</h3>
+                <ul class="admin-list" id="bookAdminList"></ul>
+            </div>
+
+            <!-- 碎碎念管理 -->
+            <div class="admin-panel" id="adminMood">
+                <h3 id="moodEditTitle">发一条碎碎念</h3>
+                <input type="hidden" id="moodEditId">
+                <textarea id="moodText" rows="3" placeholder="在想什么..."></textarea>
+                <select id="moodEmoji">
+                    <option value="💭">💭 思考</option>
+                    <option value="🔥">🔥 兴奋</option>
+                    <option value="☕">☕ 摸鱼</option>
+                    <option value="🎉">🎉 庆祝</option>
+                    <option value="😤">😤 抓狂</option>
+                    <option value="🌙">🌙 深夜</option>
+                    <option value="💡">💡 灵感</option>
+                    <option value="🐛">🐛 Debug</option>
+                </select>
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addMood">发布</button>
+                    <button class="btn btn-warning" id="cancelMoodEdit" style="display:none;">取消编辑</button>
+                </div>
+                <h3 style="margin-top:2rem;">已发布</h3>
+                <ul class="admin-list" id="moodAdminList"></ul>
+            </div>
+
+            <!-- 技能栈管理 -->
+            <div class="admin-panel" id="adminSkills">
+                <h3 id="skillEditTitle">添加技能</h3>
+                <input type="hidden" id="skillEditName">
+                <input id="skillName" placeholder="技能名称（如 Python）">
+                <input id="skillLevel" placeholder="熟练度 0-100" type="number" min="0" max="100">
+                <select id="skillColor">
+                    <option value="cyan">青色</option>
+                    <option value="pink">粉色</option>
+                    <option value="purple">紫色</option>
+                    <option value="green">绿色</option>
+                    <option value="orange">橙色</option>
+                </select>
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="addSkill">添加</button>
+                    <button class="btn btn-warning" id="cancelSkillEdit" style="display:none;">取消编辑</button>
+                </div>
+                <h3 style="margin-top:2rem;">已添加</h3>
+                <ul class="admin-list" id="skillAdminList"></ul>
+            </div>
+
+            <!-- 主题设置 -->
+            <div class="admin-panel" id="adminTheme">
+                <h3>配色方案</h3>
+                <div class="theme-grid" id="themeGrid">
+                    <button class="theme-btn active" data-theme="default" style="--tc:#00f0ff;--tp:#ff3c7e;">
+                        <span class="theme-preview"></span>赛博青
+                    </button>
+                    <button class="theme-btn" data-theme="neon-green" style="--tc:#00ff88;--tp:#ff3c7e;">
+                        <span class="theme-preview"></span>霓虹绿
+                    </button>
+                    <button class="theme-btn" data-theme="violet" style="--tc:#a78bfa;--tp:#f472b6;">
+                        <span class="theme-preview"></span>暗紫
+                    </button>
+                    <button class="theme-btn" data-theme="amber" style="--tc:#fbbf24;--tp:#f97316;">
+                        <span class="theme-preview"></span>琥珀金
+                    </button>
+                    <button class="theme-btn" data-theme="red" style="--tc:#f87171;--tp:#fb923c;">
+                        <span class="theme-preview"></span>赤焰红
+                    </button>
+                    <button class="theme-btn" data-theme="disguise" style="--tc:#2563eb;--tp:#dc2626;">
+                        <span class="theme-preview"></span>🌙 伪装模式
+                    </button>
+                </div>
+            </div>
+
+            <!-- 自定义 CSS -->
+            <div class="admin-panel" id="adminCSS">
+                <h3>自定义 CSS 注入</h3>
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.8rem;">在此输入的 CSS 将实时覆盖到页面上。保存后刷新页面也会生效。</p>
+                <textarea id="customCSS" rows="8" placeholder="/* 在此输入自定义 CSS */
+.my-class { color: red; }"></textarea>
+                <div class="admin-actions">
+                    <button class="btn btn-primary" id="applyCSS">应用</button>
+                    <button class="btn btn-warning" id="clearCSS">清除</button>
+                    <button class="btn" id="previewCSS">预览</button>
+                </div>
+                <div id="cssStatus" style="font-size:0.8rem;color:var(--text-secondary);"></div>
+            </div>
+        </div>
+
+        <!-- 数据管理 -->
+        <div class="section" id="adminDataSection" style="margin-top:1rem;display:none;">
+            <h3>数据管理</h3>
+            <div class="admin-actions">
+                <button class="btn btn-warning" id="exportData">导出数据</button>
+                <button class="btn" id="exportRSS">生成 RSS</button>
+                <button class="btn btn-danger" id="clearData">清空全部数据</button>
+            </div>
+            <input type="file" id="importFile" accept=".json" style="display:none;">
+            <button class="btn btn-primary" id="importBtn">导入数据</button>
+            <div id="importStatus" style="margin-top:0.5rem;font-size:0.85rem;color:var(--cyan);"></div>
+        </div>
+    </div></section>
+
+</main>
+
+<!-- 阅读进度条 -->
+<div class="reading-progress" id="readingProgress">
+    <div class="reading-progress-bar" id="readingProgressBar"></div>
+</div>
+
+<!-- 提示 Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 随机博客 -->
+<button class="random-blog-btn" id="randomBlogBtn" title="随机阅读">🎲</button>
+<!-- 回到顶部 -->
+<button class="back-to-top" id="backToTop" title="回到顶部">↑</button>
+
+<!-- PWA 安装提示 -->
+<div class="pwa-install-banner" id="pwaInstallBanner">
+    <span class="pwa-install-text">⚡ 安装到主屏幕，获得更好体验</span>
+    <div class="pwa-install-actions">
+        <button class="pwa-install-btn" id="pwaInstallBtn">安装</button>
+        <button class="pwa-install-dismiss" id="pwaDismissBtn">稍后</button>
+    </div>
+</div>
+<!-- 离线提示 -->
+<div class="offline-toast" id="offlineToast">📡 网络已断开，正在使用离线缓存</div>
+<!-- 音乐播放器 -->
+<div class="music-player" id="musicPlayer">
+    <div class="music-toggle" id="musicToggle" title="音乐播放器">
+        <span class="music-icon">♫</span>
+    </div>
+    <div class="music-panel" id="musicPanel">
+        <div class="music-info">
+            <span class="music-title" id="musicTitle">赛博朋克电台</span>
+        </div>
+        <div class="music-progress">
+            <div class="music-progress-bar" id="musicProgressBar"></div>
+        </div>
+        <div class="music-controls">
+            <button class="music-btn" id="musicPrev">⏮</button>
+            <button class="music-btn music-play" id="musicPlay">▶</button>
+            <button class="music-btn" id="musicNext">⏭</button>
+            <input type="range" class="music-volume" id="musicVolume" min="0" max="100" value="50">
+        </div>
+    </div>
+</div>
+
+<!-- 底部移动端导航 -->
+<nav class="mobile-nav" id="mobileNav">
+    <div class="mobile-nav-inner">
+        <button class="mobile-nav-item active" data-page="home"><span class="mobile-nav-icon">🏠</span>主页</button>
+        <button class="mobile-nav-item" data-page="blog"><span class="mobile-nav-icon">📝</span>博客</button>
+        <button class="mobile-nav-item" data-page="projects"><span class="mobile-nav-icon">🔧</span>项目</button>
+        <button class="mobile-nav-item" data-page="tools"><span class="mobile-nav-icon">🛠</span>工具</button>
+        </div>
+</nav>
+<!-- 页脚 -->
+<footer class="site-footer" id="siteFooter">
+    <div class="footer-content">
+        <span>© 2026 LAOZIG | Powered by Express + localStorage Cache</span>
+        <span class="footer-stats" id="footerStats"></span>
+    </div>
+</footer>
+
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/prism.min.js"></script>
+<script src="vendor/prism-javascript.min.js"></script>
+<script src="vendor/prism-python.min.js"></script>
+<script src="vendor/prism-bash.min.js"></script>
+<script src="vendor/prism-c.min.js"></script>
+<script src="vendor/prism-json.min.js"></script>
+<script src="app.js"></script>
+
+
+</body>
+</html>

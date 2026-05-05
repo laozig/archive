@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>LAOZIG | 个人综合站</title>
+    <link>https://laozig.com</link>
+    <description>Security Researcher · Reverse Engineer · CTF Player - 逆向工程、Web安全、CTF</description>
+    <language>zh-CN</language>
+    <lastBuildDate>Fri, 01 Jan 2026 00:00:00 +0800</lastBuildDate>
+    <atom:link href="https://laozig.com/rss.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>Welcome</title>
+      <link>https://laozig.com</link>
+      <description>欢迎来到 LAOZIG 的赛博朋克个人站。这是一个纯前端驱动的综合站，包含博客、项目、工具、书架、影视柜等模块。</description>
+      <pubDate>Fri, 01 Jan 2026 00:00:00 +0800</pubDate>
+      <guid>https://laozig.com#welcome</guid>
+    </item>
+  </channel>
+</rss>

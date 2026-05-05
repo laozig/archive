@@ -1,0 +1,26 @@
+{
+    email you@example.com
+}
+
+example.com {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+
+    @static {
+        path /app.js /style.css /manifest.json /vendor/* /favicon.ico
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+
+    @sw path /sw.js
+    header @sw Cache-Control "no-cache"
+
+    @dynamic {
+        path / /blog/* /robots.txt /rss.xml /sitemap.xml /healthz /api/*
+    }
+    header @dynamic Cache-Control "no-store"
+
+    reverse_proxy 127.0.0.1:3002
+}
