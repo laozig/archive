@@ -329,7 +329,14 @@ function escapeXml(text) {
         .replace(/'/g, '&apos;');
 }
 
-function sanitizeMarkdown(markdown) {
+var _mdCache = {};
+var _mdCacheSize = 0;
+var _MD_CACHE_MAX = 30;
+
+function sanitizeMarkdown(markdown, cacheKey) {
+    if (cacheKey && _mdCache[cacheKey] !== undefined) {
+        return _mdCache[cacheKey];
+    }
     var html = '';
     try {
         html = marked.parse(markdown || '');
@@ -337,7 +344,17 @@ function sanitizeMarkdown(markdown) {
         html = '';
     }
     if (typeof DOMPurify !== 'undefined') {
-        return DOMPurify.sanitize(html);
+        html = DOMPurify.sanitize(html);
+    } else {
+        html = escapeHtml(markdown || '');
+    }
+    if (cacheKey) {
+        if (_mdCacheSize >= _MD_CACHE_MAX) {
+            _mdCache = {};
+            _mdCacheSize = 0;
+        }
+        _mdCache[cacheKey] = html;
+        _mdCacheSize++;
     }
     return html;
 }
@@ -684,7 +701,7 @@ function showBlogDetail(id) {
     const blog = data.blogs.find(b => b.id === id);
     if (!blog) return;
     const detail = document.getElementById('blogDetail');
-    const safeHtml = sanitizeMarkdown(blog.content);
+    const safeHtml = sanitizeMarkdown(blog.content, 'blog:' + blog.id);
     detail.innerHTML =
         '<h1>' + escapeHtml(blog.title) + '</h1><div class="blog-meta"><span>' + formatTime(blog.created) + '</span>' +
         (blog.category ? '<span class="blog-item-category">' + escapeHtml(blog.category) + '</span>' : '') +
@@ -735,9 +752,18 @@ function generateToc() {
     if (!content || !tocList) return;
     const headings = content.querySelectorAll('h2, h3');
     if (headings.length < 2) { tocList.innerHTML = ''; return; }
-    tocList.innerHTML = Array.from(headings).map((h, i) => {
-        h.id = 'heading-' + i;
-        return '<a href="#heading-' + i + '" class="' + (h.tagName === 'H3' ? 'toc-h3' : '') + '">' + escapeHtml(h.textContent) + '</a>';
+    var usedSlugs = {};
+    tocList.innerHTML = Array.from(headings).map(function(h) {
+        var slug = (h.textContent || '').toLowerCase().replace(/[^\u4e00-\u9fa5a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        if (!slug) slug = 'section';
+        if (usedSlugs[slug]) {
+            var counter = 1;
+            while (usedSlugs[slug + '-' + counter]) counter++;
+            slug = slug + '-' + counter;
+        }
+        usedSlugs[slug] = true;
+        h.id = slug;
+        return '<a href="#' + slug + '" class="' + (h.tagName === 'H3' ? 'toc-h3' : '') + '">' + escapeHtml(h.textContent) + '</a>';
     }).join('');
 }
 
@@ -1018,10 +1044,18 @@ function initSearch() {
         if (e.key === 'Escape') closeSearch();
     });
     modal.addEventListener('click', function(e) { if (e.target === modal) closeSearch(); });
+    var searchTimer = null;
     input.addEventListener('input', function() {
         var q = input.value.trim().toLowerCase();
-        if (!q) { document.getElementById('searchResults').innerHTML = '<div class="search-empty">输入关键词开始搜索</div>'; return; }
-        performSearch(q);
+        if (!q) {
+            document.getElementById('searchResults').innerHTML = '<div class="search-empty">输入关键词开始搜索</div>';
+            clearTimeout(searchTimer);
+            return;
+        }
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function() {
+            performSearch(q);
+        }, 300);
     });
 }
 
@@ -1635,7 +1669,6 @@ function updateUptime() {
 
 // ===== 初始化 =====
 var router;
-var startTime = Date.now();
 
 document.addEventListener('DOMContentLoaded', function() {
     // 访客追踪
@@ -1976,23 +2009,61 @@ document.addEventListener('DOMContentLoaded', function() {
     // RSS 导出
     document.getElementById('exportRSS').addEventListener('click', downloadRSS);
 
-    // 清空数据
-    document.getElementById('clearData').addEventListener('click', function() {
-        if (!requireAdminAccess()) return;
-        if (confirm(t('clear_confirm'))) {
-            var resetData = JSON.parse(JSON.stringify(defaultData));
-            _serverDataReady = true;
-            _serverData = JSON.parse(JSON.stringify(resetData));
-            localStorage.setItem(DB_KEY, JSON.stringify(resetData));
-            saveToServer(resetData);
-            showToast(t('clear_ok'));
-            document.getElementById('importStatus').textContent = '';
+    // 清空数据（使用 cloneNode 清除旧监听器）
+    var clearBtn = document.getElementById('clearData');
+    if (clearBtn) {
+        var clearReplacement = clearBtn.cloneNode(true);
+        clearBtn.parentNode.replaceChild(clearReplacement, clearBtn);
+        clearReplacement.addEventListener('click', function() {
+            if (!requireAdminAccess()) return;
+            if (!confirm(t('clear_confirm'))) return;
+            var previousData = loadData();
+            var resetData = cloneData(defaultData);
+            saveData(resetData).then(function(result) {
+                if (!result || !result.ok) {
+                    _serverData = withDefaultData(previousData);
+                    _serverDataReady = true;
+                    savePublicCache(previousData);
+                    showToast('清空失败，请检查服务端状态后重试', true);
+                    renderHome();
+                    renderAdmin();
+                    return;
+                }
+                document.getElementById('importStatus').textContent = '';
+                renderHome();
+                renderAdmin();
+                showToast(t('clear_ok'));
+            });
+        });
+    }
+
+    // 管理页面认证与数据恢复
+    if (hasAdminPage() && hasAdminKey() && !hasAdminAccess()) {
+        updateAdminAuthStatus('正在验证管理密钥...', false);
+        loadAdminDataFromServer().then(function() {
             renderHome();
             renderAdmin();
-        }
-    });
+        }).catch(function() {});
+    }
+
+    waitForInitialData(5000).then(openBlogFromLocation);
+    window.addEventListener('hashchange', openBlogFromLocation);
 
     }
+
+    // 辅助功能模块初始化
+    initCodeCopyButtons();
+    initPWAInstall();
+    initOfflineDetection();
+    initMobileNav();
+    initLazyImages();
+    initTerminalTabComplete();
+    initGestureNavigation();
+    initTocHighlight();
+    initSearchKeyNav();
+    initRandomBlog();
+    // 数字动画延迟执行
+    setTimeout(animateNumbers, 1600);
 
     // 注册 Service Worker
     if ('serviceWorker' in navigator) {
@@ -2489,23 +2560,8 @@ function getReadTimeBadge(content) {
 var _originalRenderBlogList = renderBlogList;
 renderBlogList = renderBlogListPaginated;
 
-// ===== 在 DOMContentLoaded 中初始化新模块 =====
-// (已在上面的 DOMContentLoaded 中完成基本初始化，这里追加)
-
-document.addEventListener('DOMContentLoaded', function() {
-    initCodeCopyButtons();
-    initPWAInstall();
-    initOfflineDetection();
-    initMobileNav();
-    initLazyImages();
-    initTerminalTabComplete();
-    initGestureNavigation();
-    initTocHighlight();
-    initSearchKeyNav();
-    initRandomBlog();
-    // 数字动画延迟执行
-    setTimeout(animateNumbers, 1600);
-});
+// ===== 初始化新模块 =====
+// (已合并到上方 DOMContentLoaded 块中)
 
 // 暴露全局函数
 if (hasAdminPage()) {

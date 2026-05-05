@@ -12,6 +12,17 @@ pnpm-debug.log*
 
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
+
+.vscode/
+.idea/
+
+vendor/
+
+# 旧版数据文件（已迁移至 .storage/data.json）
+data.json
 
 coverage/
 dist/

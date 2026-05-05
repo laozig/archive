@@ -1606,39 +1606,6 @@ body {
   cursor: pointer;
 }
 
-/* ===== 博客统计与分享 ===== */
-.blog-stats {
-  display: flex;
-  gap: 1.5rem;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  margin: 1rem 0;
-  padding: 0.8rem 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-.share-bar {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-.share-btn {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  padding: 0.35rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  transition: all 0.25s;
-}
-.share-btn:hover {
-  border-color: var(--cyan);
-  color: var(--cyan);
-}
-
 /* ===== 页脚增强 ===== */
 .footer-content {
   display: flex;
@@ -1666,13 +1633,6 @@ body {
 .page {
   display: none;
   animation: fadeIn 0.4s ease;
-}
-
-/* ===== 搜索结果高亮 ===== */
-.search-highlight {
-  background: rgba(0,240,255,0.2);
-  padding: 0 2px;
-  border-radius: 2px;
 }
 
 /* ===== 后台编辑按钮 ===== */
@@ -1807,51 +1767,6 @@ body {
   transition: 0s;
 }
 
-/* ===== PWA 安装提示 ===== */
-.pwa-install-banner {
-  position: fixed;
-  bottom: 5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bg-card);
-  border: 1px solid var(--cyan-dark);
-  border-radius: 8px;
-  padding: 0.8rem 1.2rem;
-  display: none;
-  align-items: center;
-  gap: 0.8rem;
-  z-index: 600;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-  animation: searchSlide 0.3s ease;
-  max-width: 90%;
-}
-.pwa-install-banner.show { display: flex; }
-.pwa-install-text { font-size: 0.82rem; color: var(--text-primary); flex: 1; }
-.pwa-install-actions { display: flex; gap: 0.4rem; }
-.pwa-install-btn {
-  padding: 0.35rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  border: 1px solid var(--cyan);
-  color: var(--cyan);
-  background: rgba(0,240,255,0.06);
-  transition: all 0.2s;
-}
-.pwa-install-btn:hover { background: rgba(0,240,255,0.15); }
-.pwa-install-dismiss {
-  padding: 0.35rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  background: none;
-  transition: all 0.2s;
-}
-
 /* ===== 离线提示 ===== */
 .offline-toast {
   position: fixed;
@@ -1920,13 +1835,6 @@ body {
   padding: 1rem;
 }
 
-/* ===== 搜索高亮 ===== */
-.search-highlight {
-  background: rgba(0,240,255,0.25);
-  padding: 0 2px;
-  border-radius: 2px;
-}
-
 /* ===== localStorage 容量警告 ===== */
 .storage-warning {
   background: rgba(255,136,0,0.1);
@@ -1945,7 +1853,7 @@ body {
     .navbar, .scanline, .grid-bg, #particleCanvas, .boot-screen,
     .mobile-nav, .music-player, .back-to-top, .search-modal,
     .reading-progress, .toast, .danmaku-wrap, .terminal,
-    .pwa-install-banner, .offline-toast, .share-bar, .blog-toc,
+    .offline-toast, .share-bar, .blog-toc,
     .btn-back { display: none !important; }
     body { background: white; color: #333; }
     .container { padding: 0; max-width: 100%; }
@@ -2060,7 +1968,6 @@ body {
   .container { padding-bottom: 5rem; }
   .music-player { bottom: 4.5rem; }
   .back-to-top { bottom: 5rem; }
-  .pwa-install-banner { bottom: 8rem; }
 }
 
 .admin-list .edit-btn:hover {
@@ -2639,13 +2546,6 @@ body {
 .share-btn:hover {
   border-color: var(--cyan);
   color: var(--cyan);
-}
-
-/* ===== Giscus 评论 ===== */
-.giscus-wrap {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
 }
 
 /* ===== 自定义光标 ===== */
