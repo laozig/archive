@@ -420,6 +420,17 @@
                 <input id="blogTitle" placeholder="标题">
                 <input id="blogTags" placeholder="标签（逗号分隔）">
                 <input id="blogCategory" placeholder="分类（如：逆向、Web、CTF）">
+                <div class="image-helper">
+                    <div class="image-helper-row">
+                        <input id="blogImageInput" placeholder="粘贴图床 Markdown 或图片 URL">
+                        <input id="blogImageAlt" placeholder="图片说明（可选）">
+                    </div>
+                    <div class="admin-actions">
+                        <button class="btn btn-small" id="insertBlogImage" type="button">插入图片</button>
+                        <button class="btn btn-small" id="clearBlogImage" type="button">清空</button>
+                    </div>
+                    <div class="admin-inline-hint" id="blogImageStatus">粘贴图床 Markdown 或图片 URL，支持自动转成 Markdown。</div>
+                </div>
                 <button class="btn btn-small" id="toggleMdEditor" style="margin-bottom:0.5rem;">切换编辑器模式</button>
                 <textarea id="blogContent" rows="10" placeholder="内容（支持 Markdown）"></textarea>
                 <div class="md-editor" id="mdEditor">

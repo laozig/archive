@@ -344,7 +344,10 @@ function sanitizeMarkdown(markdown, cacheKey) {
         html = '';
     }
     if (typeof DOMPurify !== 'undefined') {
-        html = DOMPurify.sanitize(html);
+        html = DOMPurify.sanitize(html, {
+            ADD_TAGS: ['img'],
+            ADD_ATTR: ['src', 'alt', 'title', 'width', 'height', 'loading']
+        });
     } else {
         html = escapeHtml(markdown || '');
     }
@@ -1268,7 +1271,8 @@ function editDraft(id) {
     document.getElementById('blogTitle').value = draft.title || '';
     document.getElementById('blogTags').value = (draft.tags || []).join(', ');
     document.getElementById('blogCategory').value = draft.category || '';
-    document.getElementById('blogContent').value = draft.content || '';
+    setBlogEditorContent(draft.content || '');
+    clearBlogImageHelper();
     showToast('草稿已加载到编辑器');
 }
 function deleteBlog(id) { if (!requireAdminAccess()) return; var d = loadData(); d.blogs = d.blogs.filter(function(b) { return b.id !== id; }); saveData(d); showToast('已删除'); renderAdminLists(); }
@@ -1289,7 +1293,8 @@ function editBlog(id) {
     document.getElementById('blogTitle').value = blog.title;
     document.getElementById('blogTags').value = (blog.tags || []).join(', ');
     document.getElementById('blogCategory').value = blog.category || '';
-    document.getElementById('blogContent').value = blog.content;
+    setBlogEditorContent(blog.content || '');
+    clearBlogImageHelper();
     document.getElementById('addBlog').textContent = '更新';
     document.getElementById('cancelEdit').style.display = '';
     showToast('正在编辑: ' + blog.title);
@@ -1389,7 +1394,8 @@ function resetBlogForm() {
     document.getElementById('blogTitle').value = '';
     document.getElementById('blogTags').value = '';
     document.getElementById('blogCategory').value = '';
-    document.getElementById('blogContent').value = '';
+    setBlogEditorContent('');
+    clearBlogImageHelper();
     document.getElementById('addBlog').textContent = '发布';
     document.getElementById('cancelEdit').style.display = 'none';
 }
@@ -1495,6 +1501,202 @@ function initReadingProgress() {
     });
 }
 
+var _mdEditorState = null;
+
+function deriveImageAlt(url) {
+    try {
+        var pathname = new URL(url).pathname;
+        var name = pathname.split('/').pop() || 'image';
+        return name.replace(/\.[a-z0-9]+$/i, '') || 'image';
+    } catch (e) {
+        return 'image';
+    }
+}
+
+function looksLikeImageUrl(url) {
+    if (/\.(png|jpe?g|gif|webp|bmp|svg|avif|tiff?)(\?.*)?$/i.test(url)) return true;
+    var imageHosts = [
+        'imgur.com', 'i.imgur.com',
+        'smms.app', 's2.loli.net', 'sm.ms',
+        'imgbb.com', 'i.ibb.co',
+        'postimg.cc', 'i.postimg.cc',
+        'pic.imgdb.cn',
+        'telegraph-image',
+        'cdn.jsdelivr.net',
+        'raw.githubusercontent.com',
+        'img.picgo.net',
+        'mmbiz.qpic.cn',
+        'img-blog.csdnimg.cn',
+        'picx.zhimg.com'
+    ];
+    try {
+        var host = new URL(url).hostname;
+        return imageHosts.some(function(h) { return host === h || host.endsWith('.' + h); });
+    } catch (e) {
+        return false;
+    }
+}
+
+function extractImageMarkdown(raw, altOverride) {
+    var text = (raw || '').trim();
+    if (!text) return '';
+    var markdownMatch = text.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/i);
+    if (markdownMatch) {
+        return '![' + (markdownMatch[1] || (altOverride || 'image')) + '](' + markdownMatch[2] + ')';
+    }
+    var urlMatch = text.match(/^https?:\/\/[^\s]+$/i);
+    if (!urlMatch) return '';
+    var url = urlMatch[0];
+    if (!looksLikeImageUrl(url)) return '';
+    var alt = (altOverride || '').trim() || deriveImageAlt(url);
+    return '![' + alt + '](' + url + ')';
+}
+
+function updateBlogImageStatus(message, isError, isSuccess) {
+    var status = document.getElementById('blogImageStatus');
+    if (!status) return;
+    status.textContent = message || '粘贴图床 Markdown 或图片 URL，支持自动转成 Markdown。';
+    status.classList.remove('error', 'success');
+    if (isError) status.classList.add('error');
+    if (isSuccess) status.classList.add('success');
+}
+
+function clearBlogImageHelper() {
+    var input = document.getElementById('blogImageInput');
+    var alt = document.getElementById('blogImageAlt');
+    if (input) input.value = '';
+    if (alt) alt.value = '';
+    updateBlogImageStatus();
+}
+
+function setBlogEditorContent(value) {
+    var next = value || '';
+    var blogContent = document.getElementById('blogContent');
+    if (blogContent) blogContent.value = next;
+    if (_mdEditorState && _mdEditorState.source) {
+        _mdEditorState.source.value = next;
+        _mdEditorState.updatePreview();
+    }
+}
+
+function syncBlogEditorValue(sourceEl) {
+    if (!sourceEl) return;
+    var blogContent = document.getElementById('blogContent');
+    var mdSource = _mdEditorState && _mdEditorState.source;
+    if (sourceEl === mdSource) {
+        if (blogContent) blogContent.value = sourceEl.value;
+        if (_mdEditorState) _mdEditorState.updatePreview();
+        return;
+    }
+    if (blogContent && sourceEl === blogContent && mdSource) {
+        mdSource.value = sourceEl.value;
+        _mdEditorState.updatePreview();
+    }
+}
+
+function getActiveBlogEditor() {
+    if (_mdEditorState && _mdEditorState.isActive()) {
+        return _mdEditorState.source;
+    }
+    return document.getElementById('blogContent');
+}
+
+function insertTextAtCursor(target, text) {
+    if (!target) return;
+    var start = typeof target.selectionStart === 'number' ? target.selectionStart : target.value.length;
+    var end = typeof target.selectionEnd === 'number' ? target.selectionEnd : target.value.length;
+    var before = target.value.slice(0, start);
+    var after = target.value.slice(end);
+    var prefix = before && !/\n\n?$/.test(before) ? '\n' : '';
+    var suffix = after && after.charAt(0) !== '\n' ? '\n' : '';
+    target.value = before + prefix + text + suffix + after;
+    var cursor = (before + prefix + text).length;
+    target.focus();
+    if (typeof target.setSelectionRange === 'function') {
+        target.setSelectionRange(cursor, cursor);
+    }
+    syncBlogEditorValue(target);
+}
+
+function initBlogImageHelper() {
+    var input = document.getElementById('blogImageInput');
+    var alt = document.getElementById('blogImageAlt');
+    var insertBtn = document.getElementById('insertBlogImage');
+    var clearBtn = document.getElementById('clearBlogImage');
+    var blogContent = document.getElementById('blogContent');
+    var mdSource = document.getElementById('mdSource');
+    if (!input || !insertBtn || !blogContent) return;
+
+    function insertFromRaw(raw, forceInsert) {
+        var markdown = extractImageMarkdown(raw, alt ? alt.value : '');
+        if (!markdown && forceInsert) {
+            var text = (raw || '').trim();
+            var urlMatch = text.match(/^https?:\/\/[^\s]+$/i);
+            if (urlMatch) {
+                var altText = (alt ? alt.value : '').trim() || 'image';
+                markdown = '![' + altText + '](' + urlMatch[0] + ')';
+            }
+        }
+        if (!markdown) {
+            updateBlogImageStatus('请输入图床 Markdown 或图片 URL', true);
+            return false;
+        }
+        insertTextAtCursor(getActiveBlogEditor(), markdown);
+        updateBlogImageStatus('图片 Markdown 已插入正文', false, true);
+        input.value = '';
+        return true;
+    }
+
+    [blogContent, mdSource].forEach(function(editor) {
+        if (!editor) return;
+        editor.addEventListener('paste', function(e) {
+            var clipboard = e.clipboardData;
+            if (!clipboard) return;
+            var text = (clipboard.getData('text/plain') || '').trim();
+            if (text) {
+                var markdown = extractImageMarkdown(text);
+                if (markdown) {
+                    e.preventDefault();
+                    insertTextAtCursor(editor, markdown);
+                    updateBlogImageStatus('已将图床链接转成 Markdown 图片', false, true);
+                    return;
+                }
+                var urlMatch = text.match(/^https?:\/\/[^\s]+$/i);
+                if (urlMatch) {
+                    e.preventDefault();
+                    var altText = 'image';
+                    insertTextAtCursor(editor, '![' + altText + '](' + urlMatch[0] + ')');
+                    updateBlogImageStatus('已将 URL 转成 Markdown 图片', false, true);
+                    return;
+                }
+            }
+            var items = Array.from(clipboard.items || []);
+            var hasBinaryImage = items.some(function(item) {
+                return item.kind === 'file' && item.type.indexOf('image/') === 0;
+            });
+            if (hasBinaryImage && !text) {
+                e.preventDefault();
+                updateBlogImageStatus('检测到本地图片。请先上传到你的图床，再粘贴 Markdown 或 URL。', true);
+                showToast('请先上传到图床，再粘贴链接', true);
+            }
+        });
+    });
+
+    insertBtn.addEventListener('click', function() {
+        insertFromRaw(input.value, true);
+    });
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            insertFromRaw(input.value, true);
+        }
+    });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearBlogImageHelper);
+    }
+    clearBlogImageHelper();
+}
+
 // ===== Markdown 编辑器 =====
 function initMdEditor() {
     var toggleBtn = document.getElementById('toggleMdEditor');
@@ -1504,6 +1706,18 @@ function initMdEditor() {
     var blogContent = document.getElementById('blogContent');
     if (!toggleBtn || !editor || !source || !preview || !blogContent) return;
     var editorActive = false;
+    function updatePreview() {
+        try {
+            preview.innerHTML = sanitizeMarkdown(source.value || '');
+        } catch (e) {
+            preview.innerHTML = '<p style="color:var(--text-secondary)">预览加载中...</p>';
+        }
+    }
+    _mdEditorState = {
+        source: source,
+        updatePreview: updatePreview,
+        isActive: function() { return editorActive; }
+    };
     toggleBtn.addEventListener('click', function() {
         editorActive = !editorActive;
         if (editorActive) {
@@ -1519,8 +1733,11 @@ function initMdEditor() {
             toggleBtn.textContent = '切换编辑器模式';
         }
     });
-    function updatePreview() { try { preview.innerHTML = sanitizeMarkdown(source.value || ''); } catch(e) { preview.innerHTML = '<p style="color:var(--text-secondary)">预览加载中...</p>'; } }
-    source.addEventListener('input', function() { blogContent.value = source.value; updatePreview(); });
+    source.addEventListener('input', function() {
+        blogContent.value = source.value;
+        updatePreview();
+    });
+    updatePreview();
 }
 
 // ===== 快捷键系统 =====
@@ -1594,7 +1811,7 @@ function generateRSS() {
     var rss = '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n  <channel>\n    <title>LAOZIG | 个人综合站</title>\n    <link>' + escapeXml(siteOrigin) + '</link>\n    <description>Security Researcher · Reverse Engineer · CTF Player</description>\n    <language>zh-CN</language>\n    <lastBuildDate>' + now + '</lastBuildDate>\n    <atom:link href="' + escapeXml(siteOrigin + '/rss.xml') + '" rel="self" type="application/rss+xml"/>';
     items.forEach(function(b) {
         var date = new Date(b.created).toUTCString();
-        var desc = b.content.replace(/<[^>]*>/g, '').slice(0, 200);
+        var desc = b.content.replace(/<[^>]*>/g, '').replace(/[#*`\[\]()!>_~\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200);
         rss += '\n    <item>\n      <title>' + escapeXml(b.title) + '</title>\n      <link>' + escapeXml(siteOrigin + '/blog/' + b.id) + '</link>\n      <description>' + escapeXml(desc) + '</description>\n      <pubDate>' + date + '</pubDate>\n      <guid>' + escapeXml(siteOrigin + '/blog/' + b.id) + '</guid>\n    </item>';
     });
     rss += '\n  </channel>\n</rss>';
@@ -1611,6 +1828,10 @@ function downloadRSS() {
 }
 
 // ===== GitHub 页面 =====
+var _ghCache = null;
+var _ghCacheTime = 0;
+var _GH_CACHE_TTL = 5 * 60 * 1000;
+
 function renderGitHub() {
     var data = loadData();
     var username = data.ghUsername;
@@ -1621,25 +1842,52 @@ function renderGitHub() {
         profileEl.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-secondary);">在管理后台「关于我」中设置 GitHub 用户名后，此页面将自动拉取数据。</p></div>';
         reposEl.innerHTML = ''; statusEl.textContent = ''; return;
     }
+    if (_ghCache && _ghCache.username === username && (Date.now() - _ghCacheTime) < _GH_CACHE_TTL) {
+        profileEl.innerHTML = _ghCache.profileHtml;
+        reposEl.innerHTML = _ghCache.reposHtml;
+        statusEl.textContent = _ghCache.statusText;
+        return;
+    }
     statusEl.textContent = '加载中...';
     profileEl.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-secondary);">正在连接 GitHub API...</p></div>';
     fetch('https://api.github.com/users/' + username)
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            if (r.status === 403) throw new Error('rate_limit');
+            return r.json();
+        })
         .then(function(user) {
             profileEl.innerHTML = '<img class="gh-avatar" src="' + escapeHtml(safeUrl(user.avatar_url)) + '" alt="' + escapeHtml(user.login) + '" /><div class="gh-info"><h3>' + escapeHtml(user.name || user.login) + '</h3><p>' + escapeHtml(user.bio || '') + '</p><div class="gh-stats"><div class="gh-stat"><span class="gh-stat-num">' + user.public_repos + '</span><span class="gh-stat-label">Repos</span></div><div class="gh-stat"><span class="gh-stat-num">' + user.followers + '</span><span class="gh-stat-label">Followers</span></div><div class="gh-stat"><span class="gh-stat-num">' + user.following + '</span><span class="gh-stat-label">Following</span></div></div></div>';
             statusEl.textContent = '@' + user.login;
         })
-        .catch(function() { profileEl.innerHTML = '<div class="card"><p style="color:var(--pink);">GitHub API 请求失败，请检查用户名或网络。</p></div>'; statusEl.textContent = '连接失败'; });
+        .catch(function(e) {
+            if (e.message === 'rate_limit') {
+                profileEl.innerHTML = '<div class="card"><p style="color:var(--pink);">GitHub API 请求频率超限，请稍后再试。</p></div>';
+            } else {
+                profileEl.innerHTML = '<div class="card"><p style="color:var(--pink);">GitHub API 请求失败，请检查用户名或网络。</p></div>';
+            }
+            statusEl.textContent = '连接失败';
+        });
     fetch('https://api.github.com/users/' + username + '/repos?sort=updated&per_page=30')
-        .then(function(r) { return r.json(); })
+        .then(function(r) {
+            if (r.status === 403) throw new Error('rate_limit');
+            return r.json();
+        })
         .then(function(repos) {
             if (!Array.isArray(repos) || repos.length === 0) { reposEl.innerHTML = '<div class="card"><p style="text-align:center;color:var(--text-secondary);">暂无公开仓库</p></div>'; return; }
             reposEl.innerHTML = repos.map(function(repo) {
                 var repoUrl = safeUrl(repo.html_url);
                 return '<div class="gh-repo"><h4>' + (repoUrl ? '<a href="' + escapeHtml(repoUrl) + '" target="_blank" rel="noopener">' + escapeHtml(repo.name) + '</a>' : escapeHtml(repo.name)) + '</h4><p>' + escapeHtml(repo.description || '暂无描述') + '</p><div class="gh-repo-meta">' + (repo.language ? '<span class="gh-repo-lang">● ' + escapeHtml(repo.language) + '</span>' : '') + '<span class="gh-repo-stars">★ ' + repo.stargazers_count + '</span><span>Fork: ' + repo.forks_count + '</span><span>' + timeAgo(new Date(repo.updated_at).getTime()) + '</span></div></div>';
             }).join('');
+            _ghCache = { username: username, profileHtml: profileEl.innerHTML, reposHtml: reposEl.innerHTML, statusText: statusEl.textContent };
+            _ghCacheTime = Date.now();
         })
-        .catch(function() { reposEl.innerHTML = '<div class="card"><p style="color:var(--pink);">仓库列表加载失败</p></div>'; });
+        .catch(function(e) {
+            if (e.message === 'rate_limit') {
+                reposEl.innerHTML = '<div class="card"><p style="color:var(--pink);">GitHub API 请求频率超限，请稍后再试。</p></div>';
+            } else {
+                reposEl.innerHTML = '<div class="card"><p style="color:var(--pink);">仓库列表加载失败</p></div>';
+            }
+        });
 }
 
 // ===== 主题 =====
@@ -1722,6 +1970,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initDanmaku();
     initReadingProgress();
     initMdEditor();
+    initBlogImageHelper();
     initShortcuts();
     initCustomCSS();
     initAdminAuth();
@@ -1782,6 +2031,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editId) {
             var blog = data.blogs.find(function(b) { return b.id === editId; });
             if (blog) { blog.title = title; blog.content = content; blog.category = category; blog.tags = tags; }
+            delete _mdCache['blog:' + editId];
             showToast(t('blog_updated'));
         } else {
             data.blogs.push({ id: genId(), title: title, content: content, category: category, tags: tags, created: Date.now() });
@@ -2615,9 +2865,18 @@ function savePublicCache(data) {
 
 ADMIN_KEY_STORAGE = 'laozig_admin_key_session';
 var LEGACY_ADMIN_KEY_STORAGE = 'laozig_admin_key';
-_adminVerified = false;
+var _adminVerified = false;
 try {
-    _adminKey = sessionStorage.getItem(ADMIN_KEY_STORAGE) || '';
+    var _sessionKey = sessionStorage.getItem(ADMIN_KEY_STORAGE) || '';
+    var _legacyKey = localStorage.getItem(LEGACY_ADMIN_KEY_STORAGE) || '';
+    if (_sessionKey) {
+        _adminKey = _sessionKey;
+    } else if (_legacyKey) {
+        _adminKey = _legacyKey;
+        sessionStorage.setItem(ADMIN_KEY_STORAGE, _legacyKey);
+    } else {
+        _adminKey = '';
+    }
     localStorage.removeItem(LEGACY_ADMIN_KEY_STORAGE);
 } catch (e) {
     _adminKey = '';
@@ -2847,43 +3106,3 @@ function waitForInitialData(timeoutMs) {
         check();
     });
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-    if (hasAdminPage() && hasAdminKey() && !hasAdminAccess()) {
-        updateAdminAuthStatus('正在验证管理密钥...', false);
-        loadAdminDataFromServer().then(function() {
-            renderHome();
-            renderAdmin();
-        }).catch(function() {});
-    }
-
-    waitForInitialData(5000).then(openBlogFromLocation);
-    window.addEventListener('hashchange', openBlogFromLocation);
-
-    var clearBtn = document.getElementById('clearData');
-    if (clearBtn) {
-        var replacement = clearBtn.cloneNode(true);
-        clearBtn.parentNode.replaceChild(replacement, clearBtn);
-        replacement.addEventListener('click', function() {
-            if (!requireAdminAccess()) return;
-            if (!confirm(t('clear_confirm'))) return;
-            var previousData = loadData();
-            var resetData = cloneData(defaultData);
-            saveData(resetData).then(function(result) {
-                if (!result || !result.ok) {
-                    _serverData = withDefaultData(previousData);
-                    _serverDataReady = true;
-                    savePublicCache(previousData);
-                    showToast('清空失败，请检查服务端状态后重试', true);
-                    renderHome();
-                    renderAdmin();
-                    return;
-                }
-                document.getElementById('importStatus').textContent = '';
-                renderHome();
-                renderAdmin();
-                showToast(t('clear_ok'));
-            });
-        });
-    }
-});

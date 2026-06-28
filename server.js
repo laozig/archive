@@ -443,7 +443,6 @@ app.get('/healthz', (req, res) => {
             ok: true,
             timestamp: new Date().toISOString(),
             dataFile: DATA_FILE,
-            adminRoute: ADMIN_ROUTE,
             counts: {
                 blogs: data.blogs.length,
                 projects: data.projects.length,
@@ -467,8 +466,6 @@ app.get('/robots.txt', (req, res) => {
     const content = [
         'User-agent: *',
         'Allow: /',
-        `Disallow: ${ADMIN_ROUTE}`,
-        'Disallow: /api/admin/',
         'Disallow: /api/',
         '',
         `Sitemap: ${siteOrigin}/sitemap.xml`
@@ -499,7 +496,7 @@ app.get('/rss.xml', (req, res) => {
         let rss = '<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n  <channel>\n    <title>LAOZIG | 个人综合站</title>\n    <link>' + escapeXml(siteOrigin) + '</link>\n    <description>Security Researcher · Reverse Engineer · CTF Player</description>\n    <language>zh-CN</language>\n    <lastBuildDate>' + now + '</lastBuildDate>\n    <atom:link href="' + escapeXml(siteOrigin + '/rss.xml') + '" rel="self" type="application/rss+xml"/>';
         items.forEach(item => {
             const date = new Date(item.created).toUTCString();
-            const desc = item.content.replace(/<[^>]*>/g, '').slice(0, 200);
+            const desc = item.content.replace(/<[^>]*>/g, '').replace(/[#*`\[\]()!>_~\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200);
             const permalink = siteOrigin + getBlogCanonicalPath(item.id);
             rss += '\n    <item>\n      <title>' + escapeXml(item.title) + '</title>\n      <link>' + escapeXml(permalink) + '</link>\n      <description>' + escapeXml(desc) + '</description>\n      <pubDate>' + date + '</pubDate>\n      <guid>' + escapeXml(permalink) + '</guid>\n    </item>';
         });
@@ -541,7 +538,7 @@ app.get('/sitemap.xml', (req, res) => {
 
 Object.entries(PUBLIC_ASSETS).forEach(([routePath, assetPath]) => {
     app.get(routePath, (req, res) => {
-        if (routePath === '/sw.js') {
+        if (routePath === '/sw.js' || routePath === '/app.js' || routePath === '/style.css') {
             res.set('Cache-Control', 'no-cache');
         }
         sendPublicAsset(res, assetPath);

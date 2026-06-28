@@ -1,4 +1,4 @@
-const CACHE_NAME = 'laozig-v7';
+const CACHE_NAME = 'laozig-v8';
 const STATIC_ASSETS = [
     '/',
     '/style.css',
@@ -65,9 +65,14 @@ self.addEventListener('fetch', event => {
     }
 
     const url = new URL(event.request.url);
+    const isSameOrigin = url.origin === self.location.origin;
     const isDocumentAsset = event.request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css');
     const isStaticAsset = event.request.destination === 'image' || event.request.destination === 'font';
     const isApiRequest = url.pathname.startsWith('/api/');
+
+    if (!isSameOrigin) {
+        return;
+    }
 
     if (isDocumentAsset) {
         event.respondWith(networkFirst(event.request));
