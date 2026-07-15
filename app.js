@@ -529,52 +529,6 @@ function getVisitorStats() {
     }
 }
 
-// ===== 启动序列 =====
-class BootSequence {
-    constructor() {
-        this.screen = document.getElementById('bootScreen');
-        this.ascii = document.getElementById('bootAscii');
-        this.log = document.getElementById('bootLog');
-        this.bar = document.getElementById('bootBarFill');
-        this.lines = [
-            { text: '[  OK  ] Kernel initialized', cls: 'log-ok' },
-            { text: '[  OK  ] Loading cyber modules...', cls: 'log-ok' },
-            { text: '[ INFO ] Mounting /dev/particles', cls: 'log-info' },
-            { text: '[  OK  ] Particle engine ready', cls: 'log-ok' },
-            { text: '[ INFO ] Initializing grid matrix', cls: 'log-info' },
-            { text: '[ WARN ] Scanline overlay active', cls: 'log-warn' },
-            { text: '[  OK  ] Theme engine loaded', cls: 'log-ok' },
-            { text: '[ INFO ] Decrypting blog archives...', cls: 'log-info' },
-            { text: '[  OK  ] Data store connected', cls: 'log-ok' },
-            { text: '[ INFO ] Visitor tracking initialized', cls: 'log-info' },
-            { text: '[  OK  ] Music engine ready', cls: 'log-ok' },
-            { text: '[ INFO ] Booting LAOZIG OS v3.0', cls: 'log-info' },
-            { text: '[  OK  ] System ready. Welcome.', cls: 'log-ok' }
-        ];
-        this.init();
-    }
-    init() {
-        const asciiArt = '\n \u2588\u2588\u2557      \u2588\u2588\u2588\u2588\u2588\u2557  \u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2557 \n \u2588\u2588\u2551     \u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2557\u255a\u2550\u2550\u2588\u2588\u2588\u2554\u255d\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255d \n \u2588\u2588\u2551     \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551  \u2588\u2588\u2588\u2554\u255d \u2588\u2588\u2551\u2588\u2588\u2551  \u2588\u2588\u2588\u2557\n \u2588\u2588\u2551     \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551 \u2588\u2588\u2588\u2554\u255d  \u2588\u2588\u2551\u2588\u2588\u2551   \u2588\u2588\u2551\n \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u255a\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d\u255a\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2551\u255a\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d\n \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d \u255a\u2550\u2550\u2550\u255d  \u255a\u2550\u2550\u2550\u255d \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u255d \u255a\u2550\u2550\u2550\u2550\u255d';
-        this.ascii.textContent = asciiArt;
-        this.runSequence();
-    }
-    async runSequence() {
-        for (let i = 0; i < this.lines.length; i++) {
-            await this.delay(120 + Math.random() * 100);
-            const div = document.createElement('div');
-            div.className = 'log-line ' + this.lines[i].cls;
-            div.textContent = this.lines[i].text;
-            this.log.appendChild(div);
-            this.bar.style.width = ((i + 1) / this.lines.length * 100) + '%';
-        }
-        await this.delay(400);
-        this.screen.classList.add('fade-out');
-        await this.delay(600);
-        this.screen.classList.add('hidden');
-    }
-    delay(ms) { return new Promise(r => setTimeout(r, ms)); }
-}
-
 // ===== 粒子动画 =====
 class ParticleNetwork {
     constructor(canvas) {

@@ -1,7 +1,7 @@
-const CACHE_NAME = 'laozig-v12';
+const CACHE_NAME = 'laozig-v13';
 const STATIC_ASSETS = [
-    '/style.css',
-    '/app.js',
+    '/style.css?v=20260715-2',
+    '/app.js?v=20260715-2',
     '/manifest.json',
     '/robots.txt',
     '/vendor/purify.min.js',

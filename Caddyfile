@@ -12,10 +12,10 @@ example.com {
     @static {
         path /app.js /style.css /manifest.json /vendor/* /favicon.ico
     }
-    header @static Cache-Control "public, max-age=31536000, immutable"
+    header @static Cache-Control "public, max-age=300, must-revalidate"
 
     @sw path /sw.js
-    header @sw Cache-Control "no-cache"
+    header @sw Cache-Control "no-store, no-cache, must-revalidate"
 
     @dynamic {
         path / /blog/* /robots.txt /rss.xml /sitemap.xml /healthz /api/*
