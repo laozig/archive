@@ -14,7 +14,7 @@
 | 模块 | 说明 |
 |------|------|
 | 🏠 **主页** | Glitch 标题、打字机副标题、技能栈进度条、活动热力图、弹幕墙、最新动态 |
-| 📝 **博客** | Markdown 支持、分类过滤、自动生成目录、阅读进度条、字数统计、分享按钮、草稿箱 |
+| 📝 **博客** | Markdown 支持、中文标题固定别名、分类过滤、自动目录、阅读进度、独立 SEO、系统分享、草稿箱 |
 | 🔧 **项目** | 标签分类、GitHub Stars 展示 |
 | 🛠 **工具箱** | 分类管理常用工具 |
 | 📚 **书架** | 在读/已读/想读状态、评分、读书笔记 |
@@ -47,7 +47,6 @@
 | 📡 **RSS 订阅** | 动态生成 RSS + 后台一键下载 |
 
 ### 视觉效果
-- 🚀 启动序列动画（ASCII Art + 进度条）
 - 🌐 粒子连线背景（鼠标交互）
 - 📺 CRT 扫描线效果
 - ⚡ Glitch 标题动画
@@ -58,12 +57,12 @@
 - 🌙 伪装模式（浅色背景，隐藏赛博风）
 
 ### SEO & PWA
-- Open Graph / Twitter Card 标签
-- SVG Favicon
-- Meta description
-- Service Worker 离线缓存
+- 每篇博客独立的 Open Graph / Twitter Card 元信息
+- 中文标题固定别名、Canonical URL 与旧 ID 跳转
+- SVG Favicon 与 Meta description
+- Service Worker 静态资源缓存
 - `manifest.json` 支持安装到主屏幕
-- 动态 `robots.txt` / `sitemap.xml`
+- 动态 `robots.txt` / `sitemap.xml` / `rss.xml`
 - `healthz` 健康检查
 
 ## 🚀 使用方式
@@ -167,11 +166,13 @@ ping         → PING localhost ✅
 
 ```
 weblog/
+├── .storage/        # 共享数据、管理凭据与最近 10 份自动备份
 ├── index.html       # 页面结构
 ├── style.css        # 赛博风样式（含 6 种主题 + 全模块样式）
-├── app.js           # 核心逻辑（~1100 行）
+├── app.js           # 前端渲染、路由、编辑与分享逻辑
+├── server.js        # Express API、动态 SEO、原子存储与备份
 ├── manifest.json    # PWA 清单
-├── sw.js            # Service Worker（离线缓存）
+├── sw.js            # Service Worker 静态资源缓存
 ├── vendor/          # 本地化前端依赖
 ├── Caddyfile        # Caddy 部署配置
 ├── nginx.conf       # Nginx 部署配置
@@ -191,10 +192,11 @@ weblog/
 
 ## 📦 技术栈
 
-- **纯前端**：HTML + CSS + JavaScript，零依赖（仅 `marked.js` 用于 Markdown）
-- **数据存储**：localStorage，支持 JSON 导出/导入
-- **PWA**：Service Worker + manifest.json，支持离线使用
-- **API**：GitHub API（公开接口，无需 Token）
+- **前端**：HTML + CSS + 原生 JavaScript，依赖本地化的 Markdown、净化与代码高亮库
+- **服务端**：Node.js + Express，共享内容 API 与服务端动态 SEO
+- **数据存储**：`.storage/data.json` 原子写入，最近 10 份自动备份；`localStorage` 仅作为公开数据缓存
+- **PWA**：Service Worker + manifest.json，支持安装与静态资源缓存
+- **API**：站内内容 API + GitHub 公开 API
 - **兼容性**：现代浏览器（Chrome/Edge/Firefox/Safari）
 
 ## 📄 License

@@ -297,6 +297,107 @@ function genId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+function createBlogSlug(value) {
+    var slug = String(value || '')
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^a-z0-9\u3400-\u9fff-]+/g, '-')
+        .replace(/-{2,}/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 100)
+        .replace(/-$/g, '');
+    return slug || 'blog';
+}
+
+function getUniqueBlogSlug(title, blogs, currentId) {
+    var base = createBlogSlug(title);
+    var slug = base;
+    var suffix = 2;
+    var used = (blogs || []).some(function(blog) {
+        return blog.id !== currentId && createBlogSlug(blog.slug || blog.title || blog.id) === slug;
+    });
+    while (used) {
+        slug = base + '-' + suffix++;
+        used = (blogs || []).some(function(blog) {
+            return blog.id !== currentId && createBlogSlug(blog.slug || blog.title || blog.id) === slug;
+        });
+    }
+    return slug;
+}
+
+function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject) {
+        var textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        try {
+            if (!document.execCommand('copy')) throw new Error('copy command failed');
+            resolve();
+        } catch (error) {
+            reject(error);
+        } finally {
+            document.body.removeChild(textarea);
+        }
+    });
+}
+
+function getBlogExcerpt(blog) {
+    return String((blog && blog.content) || '')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/`([^`]*)`/g, '$1')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/[#>*_~|\-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 160);
+}
+
+function setDocumentMeta(attribute, key, value) {
+    var selector = 'meta[' + attribute + '="' + key + '"]';
+    var meta = document.head.querySelector(selector);
+    if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute(attribute, key);
+        document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', value);
+}
+
+function updateDocumentMetadata(blog) {
+    var isBlog = !!blog;
+    var title = isBlog ? blog.title + ' | LAOZIG' : 'LAOZIG | 个人综合站';
+    var description = isBlog
+        ? (getBlogExcerpt(blog) || 'LAOZIG 博客文章')
+        : 'LAOZIG 的个人综合站 - Security Researcher · Reverse Engineer · CTF Player';
+    var canonicalUrl = isBlog ? getBlogPermalink(blog) : window.location.origin + '/';
+    document.title = title;
+    setDocumentMeta('name', 'description', description);
+    setDocumentMeta('property', 'og:title', title);
+    setDocumentMeta('property', 'og:description', description);
+    setDocumentMeta('property', 'og:type', isBlog ? 'article' : 'website');
+    setDocumentMeta('property', 'og:url', canonicalUrl);
+    setDocumentMeta('name', 'twitter:title', title);
+    setDocumentMeta('name', 'twitter:description', description);
+    var canonical = document.head.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+        canonical = document.createElement('link');
+        canonical.rel = 'canonical';
+        document.head.appendChild(canonical);
+    }
+    canonical.href = canonicalUrl;
+}
+
 // ===== Toast =====
 let toastTimer;
 function showToast(msg, isError = false) {
@@ -719,16 +820,30 @@ function showBlogDetail(id) {
     // 分享按钮
     const shareEl = document.getElementById('shareBar');
     if (shareEl) {
-        const permalink = getBlogPermalink(blog.id);
+        const permalink = getBlogPermalink(blog);
         const shareUrl = encodeURIComponent(permalink);
         const shareTitle = encodeURIComponent(blog.title);
+        const shareText = getBlogExcerpt(blog);
         shareEl.innerHTML = '';
+        if (navigator.share) {
+            const systemShareBtn = document.createElement('button');
+            systemShareBtn.className = 'share-btn';
+            systemShareBtn.textContent = '📤 分享';
+            systemShareBtn.addEventListener('click', function() {
+                navigator.share({ title: blog.title, text: shareText, url: permalink }).catch(function(error) {
+                    if (error && error.name !== 'AbortError') showToast('系统分享失败，请复制链接', true);
+                });
+            });
+            shareEl.appendChild(systemShareBtn);
+        }
         const copyBtn = document.createElement('button');
         copyBtn.className = 'share-btn';
         copyBtn.textContent = '📋 复制链接';
         copyBtn.addEventListener('click', function() {
-            navigator.clipboard.writeText(permalink).then(function() {
+            copyText(permalink).then(function() {
                 showToast('链接已复制');
+            }).catch(function() {
+                showToast('复制失败，请从地址栏复制', true);
             });
         });
         const twitterBtn = document.createElement('button');
@@ -740,6 +855,7 @@ function showBlogDetail(id) {
         shareEl.appendChild(copyBtn);
         shareEl.appendChild(twitterBtn);
     }
+    updateDocumentMetadata(blog);
     if (typeof Prism !== 'undefined') {
         document.querySelectorAll('.blog-content pre code').forEach(block => { Prism.highlightElement(block); });
     }
@@ -1258,6 +1374,7 @@ function publishDraft(id) {
     var draft = (d.drafts || []).find(function(b) { return b.id === id; });
     if (!draft) return;
     draft.created = Date.now();
+    draft.slug = getUniqueBlogSlug(draft.title, d.blogs, draft.id);
     d.blogs.push(draft);
     d.drafts = d.drafts.filter(function(b) { return b.id !== id; });
     saveData(d);
@@ -1922,9 +2039,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 访客追踪
     trackVisitor();
 
-    // 启动序列
-    new BootSequence();
-
     // 粒子
     var canvas = document.getElementById('particleCanvas');
     if (canvas) new ParticleNetwork(canvas);
@@ -1939,7 +2053,7 @@ document.addEventListener('DOMContentLoaded', function() {
         applyLang();
         if (isAdminEntry() && hasAdminPage()) {
             router.navigate('admin');
-        } else {
+        } else if (!openBlogFromLocation()) {
             renderHome();
         }
     });
@@ -2030,11 +2144,11 @@ document.addEventListener('DOMContentLoaded', function() {
         var tags = tagsRaw ? tagsRaw.split(/[,，]/).map(function(s) { return s.trim(); }).filter(Boolean) : [];
         if (editId) {
             var blog = data.blogs.find(function(b) { return b.id === editId; });
-            if (blog) { blog.title = title; blog.content = content; blog.category = category; blog.tags = tags; }
+            if (blog) { blog.title = title; blog.slug = blog.slug || getUniqueBlogSlug(title, data.blogs, editId); blog.content = content; blog.category = category; blog.tags = tags; }
             delete _mdCache['blog:' + editId];
             showToast(t('blog_updated'));
         } else {
-            data.blogs.push({ id: genId(), title: title, content: content, category: category, tags: tags, created: Date.now() });
+            data.blogs.push({ id: genId(), slug: getUniqueBlogSlug(title, data.blogs), title: title, content: content, category: category, tags: tags, created: Date.now() });
             showToast(t('blog_published'));
         }
         saveData(data);
@@ -2317,7 +2431,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 注册 Service Worker
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(function() {});
+        navigator.serviceWorker.register('/sw.js').catch(function() {});
     }
 });
 
@@ -3059,21 +3173,28 @@ loadAdminDataFromServer = function() {
 var _originalShowBlogDetail = showBlogDetail;
 var _originalRouterNavigate = Router.prototype.navigate;
 
-function getBlogPermalink(id) {
-    return window.location.origin + '/blog/' + encodeURIComponent(String(id || ''));
+function getBlogPermalink(blogOrId) {
+    var blog = typeof blogOrId === 'object'
+        ? blogOrId
+        : loadData().blogs.find(function(item) { return item.id === blogOrId; });
+    var segment = blog ? (blog.slug || blog.title || blog.id) : blogOrId;
+    return window.location.origin + '/blog/' + encodeURIComponent(createBlogSlug(segment));
 }
 
 function clearBlogLocation() {
     if (window.location.pathname.indexOf('/blog/') === 0 || window.location.hash.indexOf('#blog-') === 0) {
         history.replaceState(null, '', window.location.origin + '/');
     }
+    updateDocumentMetadata(null);
 }
 
 showBlogDetail = function(id) {
-    var blog = loadData().blogs.find(function(item) { return item.id === id; });
+    var blog = loadData().blogs.find(function(item) {
+        return item.id === id || createBlogSlug(item.slug || item.title || item.id) === id || (item.aliases || []).indexOf(id) !== -1;
+    });
     if (!blog) return;
-    history.replaceState(null, '', getBlogPermalink(id));
-    _originalShowBlogDetail(id);
+    history.replaceState(null, '', getBlogPermalink(blog));
+    _originalShowBlogDetail(blog.id);
 };
 
 Router.prototype.navigate = function(page) {
@@ -3088,9 +3209,13 @@ function openBlogFromLocation() {
     } else if (window.location.hash.indexOf('#blog-') === 0) {
         id = decodeURIComponent(window.location.hash.slice(6));
     }
-    if (!id) return;
-    var exists = loadData().blogs.some(function(blog) { return blog.id === id; });
-    if (exists) showBlogDetail(id);
+    if (!id) return false;
+    var blog = loadData().blogs.find(function(item) {
+        return String(item.id) === id || createBlogSlug(item.slug || item.title || item.id) === id || (item.aliases || []).indexOf(id) !== -1;
+    });
+    if (!blog) return false;
+    showBlogDetail(blog.id);
+    return true;
 }
 
 function waitForInitialData(timeoutMs) {

@@ -6,9 +6,11 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3002;
 const STORAGE_DIR = path.join(__dirname, '.storage');
+const BACKUP_DIR = path.join(STORAGE_DIR, 'backups');
 const LEGACY_DATA_FILE = path.join(__dirname, 'data.json');
 const DATA_FILE = path.join(STORAGE_DIR, 'data.json');
 const ADMIN_KEY_FILE = path.join(STORAGE_DIR, 'admin.key');
+const MAX_DATA_BACKUPS = 10;
 const ADMIN_ROUTE_FILE = path.join(STORAGE_DIR, 'admin.route');
 const PUBLIC_ASSETS = {
     '/app.js': 'app.js',
@@ -92,6 +94,30 @@ function toId(value) {
     return raw || genId();
 }
 
+function toBlogSlug(value) {
+    const slug = toText(value, 160)
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[\s_]+/g, '-')
+        .replace(/[^a-z0-9\u3400-\u9fff-]+/g, '-')
+        .replace(/-{2,}/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 100)
+        .replace(/-$/g, '');
+    return slug || 'blog';
+}
+
+function reserveBlogSlug(value, usedSlugs) {
+    const base = toBlogSlug(value);
+    let slug = base;
+    let suffix = 2;
+    while (usedSlugs.has(slug)) {
+        slug = `${base}-${suffix++}`;
+    }
+    usedSlugs.add(slug);
+    return slug;
+}
+
 function toTheme(value) {
     const allowed = ['default', 'neon-green', 'violet', 'amber', 'red', 'disguise'];
     return allowed.includes(value) ? value : DEFAULT_DATA.theme;
@@ -113,10 +139,25 @@ function normalizeTags(value) {
         .slice(0, 20);
 }
 
-function normalizeBlog(item) {
+function normalizeBlog(item, usedSlugs) {
+    const id = toId(item && item.id);
+    const title = toText(item && item.title, 160);
+    const slugSource = toText(item && item.slug, 160) || title || id;
+    const slug = usedSlugs ? reserveBlogSlug(slugSource, usedSlugs) : toBlogSlug(slugSource);
+    const aliasSet = new Set([slug]);
+    const aliases = toList(item && item.aliases)
+        .map(toBlogSlug)
+        .filter(alias => {
+            if (aliasSet.has(alias)) return false;
+            aliasSet.add(alias);
+            return true;
+        })
+        .slice(0, 20);
     return {
-        id: toId(item && item.id),
-        title: toText(item && item.title, 160),
+        id,
+        slug,
+        aliases,
+        title,
         content: typeof (item && item.content) === 'string' ? item.content.slice(0, 200000) : '',
         category: toText(item && item.category, 40),
         tags: normalizeTags(item && item.tags),
@@ -201,8 +242,9 @@ function normalizeData(input) {
     base.about = toText(source.about, 1000) || DEFAULT_DATA.about;
     base.subtitle = toText(source.subtitle, 160) || DEFAULT_DATA.subtitle;
     base.tags = normalizeTags(source.tags);
-    base.blogs = toList(source.blogs).map(normalizeBlog).filter(item => item.title && item.content);
-    base.drafts = toList(source.drafts).map(normalizeBlog).filter(item => item.title || item.content);
+    const usedBlogSlugs = new Set();
+    base.blogs = toList(source.blogs).map(item => normalizeBlog(item, usedBlogSlugs)).filter(item => item.title && item.content);
+    base.drafts = toList(source.drafts).map(item => normalizeBlog(item)).filter(item => item.title || item.content);
     base.projects = toList(source.projects).map(normalizeProject).filter(item => item.name);
     base.tools = toList(source.tools).map(normalizeTool).filter(item => item.name);
     base.books = toList(source.books).map(normalizeBook).filter(item => item.title);
@@ -249,16 +291,49 @@ const ADMIN_ROUTE = process.env.LAOZIG_ADMIN_ROUTE
     ? normalizeAdminRoute(process.env.LAOZIG_ADMIN_ROUTE)
     : ensureAdminRoute();
 
+function writeJsonAtomically(filePath, data) {
+    ensureStorageDir();
+    const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
+    const content = JSON.stringify(data, null, 2);
+    const fd = fs.openSync(tempPath, 'w');
+    try {
+        fs.writeFileSync(fd, content, 'utf8');
+        fs.fsyncSync(fd);
+    } finally {
+        fs.closeSync(fd);
+    }
+    try {
+        fs.renameSync(tempPath, filePath);
+    } catch (error) {
+        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+        throw error;
+    }
+}
+
+function backupCurrentData() {
+    if (!fs.existsSync(DATA_FILE)) return;
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.copyFileSync(DATA_FILE, path.join(BACKUP_DIR, `data-${timestamp}.json`));
+    const backups = fs.readdirSync(BACKUP_DIR)
+        .filter(name => /^data-.*\.json$/.test(name))
+        .sort()
+        .reverse();
+    backups.slice(MAX_DATA_BACKUPS).forEach(name => {
+        fs.unlinkSync(path.join(BACKUP_DIR, name));
+    });
+}
+
 function initData() {
     ensureStorageDir();
     if (!fs.existsSync(DATA_FILE)) {
         if (fs.existsSync(LEGACY_DATA_FILE)) {
             const legacyRaw = fs.readFileSync(LEGACY_DATA_FILE, 'utf8');
             const normalized = normalizeData(JSON.parse(legacyRaw));
-            fs.writeFileSync(DATA_FILE, JSON.stringify(normalized, null, 2));
+            writeJsonAtomically(DATA_FILE, normalized);
             console.log('[DATA] 已迁移旧 data.json 到 .storage/data.json');
         } else {
-            fs.writeFileSync(DATA_FILE, JSON.stringify(DEFAULT_DATA, null, 2));
+            writeJsonAtomically(DATA_FILE, DEFAULT_DATA);
             console.log('[DATA] 初始化 .storage/data.json');
         }
     }
@@ -271,7 +346,8 @@ function readData() {
 
 function writeData(data) {
     const normalized = normalizeData(data);
-    fs.writeFileSync(DATA_FILE, JSON.stringify(normalized, null, 2));
+    backupCurrentData();
+    writeJsonAtomically(DATA_FILE, normalized);
     return normalized;
 }
 
@@ -287,10 +363,57 @@ function stripAdminSection(html) {
     return html.slice(0, start) + html.slice(end + '\n    </section>'.length);
 }
 
-function sendAppShell(req, res, isAdminEntry) {
+function replaceMetaContent(html, attribute, key, value) {
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`<meta\\s+${attribute}=["']${escapedKey}["'][^>]*>`, 'i');
+    const tag = `<meta ${attribute}="${escapeXml(key)}" content="${escapeXml(value)}">`;
+    if (pattern.test(html)) return html.replace(pattern, () => tag);
+    return html.replace('</head>', `    ${tag}\n</head>`);
+}
+
+function replaceCanonicalLink(html, url) {
+    const tag = `<link rel="canonical" href="${escapeXml(url)}">`;
+    const pattern = /<link\s+rel=["']canonical["'][^>]*>/i;
+    if (pattern.test(html)) return html.replace(pattern, () => tag);
+    return html.replace('</head>', `    ${tag}\n</head>`);
+}
+
+function getBlogDescription(blog) {
+    const text = String((blog && blog.content) || '')
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/`([^`]*)`/g, '$1')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/[#>*_~|\-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return text.slice(0, 160) || 'LAOZIG 博客文章';
+}
+
+function applyPageMetadata(html, siteOrigin, blog) {
+    const canonicalUrl = blog ? siteOrigin + getBlogCanonicalPath(blog) : siteOrigin + '/';
+    const title = blog ? `${blog.title} | LAOZIG` : 'LAOZIG | 个人综合站';
+    const description = blog ? getBlogDescription(blog) : 'LAOZIG 的个人综合站 - Security Researcher · Reverse Engineer · CTF Player';
+    html = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escapeXml(title)}</title>`);
+    html = replaceMetaContent(html, 'name', 'description', description);
+    html = replaceMetaContent(html, 'property', 'og:title', title);
+    html = replaceMetaContent(html, 'property', 'og:description', description);
+    html = replaceMetaContent(html, 'property', 'og:type', blog ? 'article' : 'website');
+    html = replaceMetaContent(html, 'property', 'og:url', canonicalUrl);
+    html = replaceMetaContent(html, 'name', 'twitter:title', title);
+    html = replaceMetaContent(html, 'name', 'twitter:description', description);
+    html = replaceCanonicalLink(html, canonicalUrl);
+    if (blog) {
+        html = replaceMetaContent(html, 'property', 'article:published_time', new Date(blog.created).toISOString());
+    }
+    return html;
+}
+
+function sendAppShell(req, res, isAdminEntry, blog) {
     let html = readIndexHtml();
     const siteOrigin = getSiteOrigin(req);
-    html = html.replace('https://laozig.com', siteOrigin);
+    html = applyPageMetadata(html, siteOrigin, blog || null);
     if (isAdminEntry) {
         html = html.replace('<body>', '<body data-entry="admin">');
         html = html.replace('class="page active" id="page-home"', 'class="page" id="page-home"');
@@ -318,8 +441,15 @@ function getSiteOrigin(req) {
     return `${protocol}://${host}`;
 }
 
-function getBlogCanonicalPath(id) {
-    return `/blog/${encodeURIComponent(String(id || ''))}`;
+function getBlogCanonicalPath(blog) {
+    const segment = blog && (blog.slug || blog.title || blog.id);
+    return `/blog/${encodeURIComponent(toBlogSlug(segment || 'blog'))}`;
+}
+
+function findBlogByPath(data, value) {
+    const direct = data.blogs.find(blog => blog.id === value || blog.slug === value);
+    if (direct) return direct;
+    return data.blogs.find(blog => (blog.aliases || []).includes(value));
 }
 
 function escapeXml(value) {
@@ -410,7 +540,7 @@ app.post('/api/admin/data', requireAdmin, (req, res) => {
 app.get('/api/blogs/:id', (req, res) => {
     try {
         const data = readData();
-        const blog = data.blogs.find(b => b.id === req.params.id);
+        const blog = findBlogByPath(data, req.params.id);
         if (blog) res.json(blog);
         else res.status(404).json({ error: '博客不存在' });
     } catch (e) {
@@ -476,12 +606,16 @@ app.get('/robots.txt', (req, res) => {
 app.get('/blog/:id', (req, res) => {
     try {
         const data = readData();
-        const exists = data.blogs.some(blog => blog.id === req.params.id);
-        if (!exists) {
+        const blog = findBlogByPath(data, req.params.id);
+        if (!blog) {
             res.status(404).send('Not Found');
             return;
         }
-        sendAppShell(req, res, false);
+        if (req.params.id !== blog.slug) {
+            res.redirect(301, getBlogCanonicalPath(blog));
+            return;
+        }
+        sendAppShell(req, res, false, blog);
     } catch (e) {
         res.status(500).send('Internal Server Error');
     }
@@ -497,7 +631,7 @@ app.get('/rss.xml', (req, res) => {
         items.forEach(item => {
             const date = new Date(item.created).toUTCString();
             const desc = item.content.replace(/<[^>]*>/g, '').replace(/[#*`\[\]()!>_~\-|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 200);
-            const permalink = siteOrigin + getBlogCanonicalPath(item.id);
+            const permalink = siteOrigin + getBlogCanonicalPath(item);
             rss += '\n    <item>\n      <title>' + escapeXml(item.title) + '</title>\n      <link>' + escapeXml(permalink) + '</link>\n      <description>' + escapeXml(desc) + '</description>\n      <pubDate>' + date + '</pubDate>\n      <guid>' + escapeXml(permalink) + '</guid>\n    </item>';
         });
         rss += '\n  </channel>\n</rss>';
@@ -520,7 +654,7 @@ app.get('/sitemap.xml', (req, res) => {
             lastmod: new Date().toISOString()
         }));
         const blogUrls = data.blogs.map(blog => ({
-            loc: siteOrigin + getBlogCanonicalPath(blog.id),
+            loc: siteOrigin + getBlogCanonicalPath(blog),
             lastmod: new Date(blog.created).toISOString()
         }));
         const urls = staticUrls.concat(blogUrls);
